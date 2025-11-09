@@ -1,0 +1,16 @@
+# NiTrite v.2 - Dépendances requises
+requests>=2.31.0
+urllib3>=2.0.0
+certifi>=2023.0.0
+packaging>=23.0
+
+# Interface graphique
+Pillow>=10.0.0
+
+# Dépendances optionnelles (pour améliorer les fonctionnalités)
+tqdm>=4.66.0
+colorama>=0.4.6
+psutil>=5.9.0
+
+# Dépendances Windows (OBLIGATOIRES pour version autonome)
+pywin32>=306; sys_platform == "win32"
