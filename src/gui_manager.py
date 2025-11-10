@@ -664,13 +664,13 @@ class NiTriteGUIComplet:
                 checkbox_frame = ttk.Frame(prog_frame)
                 checkbox_frame.pack(anchor='w', fill='x')
 
-                # • Simple petit point pour lien web
+                # • Point pour lien web (taille moyenne)
                 download_url = program_info.get('download_url', '')
                 if download_url:
                     web_point = tk.Label(
                         checkbox_frame,
                         text="•",
-                        font=('Arial', 8),
+                        font=('Arial', 12),
                         fg=self.ACCENT_BLUE,
                         bg=self.DARK_BG,
                         cursor='hand2'
