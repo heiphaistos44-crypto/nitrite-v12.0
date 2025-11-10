@@ -59,7 +59,7 @@
         },
         "Spybot Search & Destroy": {
             "description": "Détection et suppression de spywares et malwares",
-            "download_url": "https://sourceforge.net/projects/spybot/files/latest/download",
+            "download_url": "",
             "install_args": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /NOCANCEL /TASKS=\"\"",
             "category": "Outils OrdiPlus",
             "essential": true,
@@ -67,7 +67,7 @@
             "cleanup_folder": "Outils de nettoyage",
             "admin_required": true,
             "winget_id": "SaferNetworking.SpybotSearchAndDestroy",
-            "note": "Installation via SourceForge - Dernière version stable"
+            "note": "Installation via WinGet uniquement (méthode la plus fiable)"
         },
         "Adobe Acrobat Reader DC": {
             "description": "Lecteur PDF officiel d'Adobe",

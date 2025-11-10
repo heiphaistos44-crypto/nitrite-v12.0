@@ -160,7 +160,7 @@ class InstallerManager:
         thread.daemon = True
         thread.start()
 
-    def install_programs(self, program_list, progress_callback, completion_callback=None):
+    def install_programs(self, program_list, progress_callback, completion_callback=None, success_list=None, failed_list=None):
         """
         Installe une liste de programmes.
         
@@ -172,6 +172,12 @@ class InstallerManager:
         self.stop_requested = False
         total_programs = len(program_list)
         success_count = 0
+        
+        # Listes pour tracking (si fournies depuis GUI)
+        if success_list is None:
+            success_list = []
+        if failed_list is None:
+            failed_list = []
         
         self.log_callback("🚀 Début de l'installation...", "info")
         
@@ -185,12 +191,26 @@ class InstallerManager:
             progress = (i / total_programs) * 100
             progress_callback(progress, f"Installation de {program_name}...")
             
-            success = self.install_single_program(program_name)
+            program_info = self.programs_db.get(program_name, {})
+            success, error_reason = self.install_single_program(program_name)
             
             if success:
                 success_count += 1
-            elif not self.stop_requested:
-                self.log_callback(f"❌ Échec de l'installation de {program_name}", "error")
+                # Ajouter aux installations réussies
+                success_list.append({
+                    'name': program_name,
+                    'category': program_info.get('category', 'N/A'),
+                    'method': 'Direct'  # TODO: distinguer Direct vs WinGet
+                })
+            else:
+                # Ajouter aux installations échouées
+                if not self.stop_requested:
+                    self.log_callback(f"❌ Échec de l'installation de {program_name}", "error")
+                    failed_list.append({
+                        'name': program_name,
+                        'category': program_info.get('category', 'N/A'),
+                        'reason': error_reason if error_reason else 'Installation échouée'
+                    })
             
             time.sleep(1)
         
@@ -209,7 +229,7 @@ class InstallerManager:
         """
         if program_name not in self.programs_db:
             self.log_callback(f"Programme '{program_name}' non trouvé.", "error")
-            return False
+            return False, "Programme non trouvé dans la base de données"
         
         program_info = self.programs_db[program_name]
         self.log_callback(f"Début de l'installation de {program_name}", "info")
@@ -224,12 +244,12 @@ class InstallerManager:
                 return self.execute_installation(installer_path, program_info)
             else:
                 self.log_callback(f"❌ Échec du téléchargement pour l'application portable {program_name}", "error")
-                return False
+                return False, "Échec du téléchargement"
 
         # Logique pour les programmes non-portables
         if self.is_program_installed(program_info):
             self.log_callback(f"{program_name} est déjà installé.", "info")
-            return True
+            return True, None
 
         # Stratégie 1: Téléchargement direct
         download_url = program_info.get('download_url', '').strip()
@@ -252,7 +272,7 @@ class InstallerManager:
             self.log_callback("⚠️ Échec de l'installation via winget.", "warning")
 
         self.log_callback(f"❌ Échec de toutes les méthodes d'installation pour {program_name}", "error")
-        return False
+        return False, "Toutes les méthodes d'installation ont échoué"
 
     def _download_program(self, program_info, max_retries=3):
         """

@@ -48,6 +48,21 @@ class NiTriteGUIComplet:
         self.collapsed_categories = set()
         self.is_installing = False
         self.installation_start_time = None  # Pour calculer le temps restant
+
+        # Tracking des installations pour rapport détaillé
+        self.successful_installs = []
+        self.failed_installs = []
+
+        # Variables pour le drag & drop des sections/catégories
+        self.section_titles = []  # Liste des frames de titres de sections
+        self.section_frames = {}  # Dict des frames de sections {title: frame}
+        self.dragging_category = None
+        self.drag_start_y = 0
+
+        # Variables pour le drag & drop des boutons
+        self.all_buttons = []  # Liste de tous les boutons
+        self.dragging_button = None
+        self.drag_button_section = None
         
         # Charger le logo Ordi Plus pour l'arrière-plan
         self.load_background_logo()
@@ -853,30 +868,238 @@ class NiTriteGUIComplet:
         """Affiche un message de log"""
         print(f"[{level.upper()}] {message}")
         self.logger.info(message)
-    
+
+    def generate_installation_report(self, success_list, failed_list):
+        """Génère un rapport HTML détaillé des installations"""
+        from datetime import datetime
+        import os
+
+        # Créer dossier rapports
+        reports_dir = Path.home() / "Desktop" / "NiTriTe_Rapports"
+        reports_dir.mkdir(exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = reports_dir / f"Rapport_Installation_{timestamp}.html"
+
+        # Générer HTML
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Rapport d'Installation NiTriTe V5.0</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }}
+        h1 {{
+            color: #FF6B00;
+            border-bottom: 3px solid #FF6B00;
+            padding-bottom: 10px;
+        }}
+        h2 {{
+            margin-top: 30px;
+        }}
+        .summary {{
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+        }}
+        .stat {{
+            text-align: center;
+        }}
+        .stat-number {{
+            font-size: 48px;
+            font-weight: bold;
+        }}
+        .success {{ color: #2ecc71; }}
+        .failed {{ color: #ff3333; }}
+        .total {{ color: #FFB800; }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+        }}
+        th {{
+            background: #FF6B00;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }}
+        td {{
+            padding: 10px 12px;
+            border-bottom: 1px solid #333;
+        }}
+        tr:hover {{
+            background: #333;
+        }}
+        .success-icon {{ color: #2ecc71; font-size: 20px; }}
+        .failed-icon {{ color: #ff3333; font-size: 20px; }}
+        .reason {{
+            font-size: 12px;
+            color: #aaa;
+            font-style: italic;
+        }}
+        footer {{
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+            text-align: center;
+            color: #666;
+        }}
+    </style>
+</head>
+<body>
+    <h1>🚀 Rapport d'Installation NiTriTe V5.0</h1>
+    <p><strong>Date:</strong> {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}</p>
+
+    <div class="summary">
+        <div class="stat">
+            <div class="stat-number total">{len(success_list) + len(failed_list)}</div>
+            <div>Total</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number success">{len(success_list)}</div>
+            <div>Réussies</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number failed">{len(failed_list)}</div>
+            <div>Échouées</div>
+        </div>
+    </div>
+
+    <h2 style="color: #2ecc71;">✅ Applications installées avec succès ({len(success_list)})</h2>
+    <table>
+        <tr>
+            <th>N°</th>
+            <th>Application</th>
+            <th>Catégorie</th>
+            <th>Méthode</th>
+        </tr>
+"""
+
+        for idx, app in enumerate(success_list, 1):
+            html_content += f"""        <tr>
+            <td>{idx}</td>
+            <td><span class="success-icon">✓</span> {app.get('name', 'N/A')}</td>
+            <td>{app.get('category', 'N/A')}</td>
+            <td>{app.get('method', 'Direct')}</td>
+        </tr>
+"""
+
+        html_content += f"""    </table>
+
+    <h2 style="color: #ff3333;">❌ Applications échouées ({len(failed_list)})</h2>
+    <table>
+        <tr>
+            <th>N°</th>
+            <th>Application</th>
+            <th>Catégorie</th>
+            <th>Raison de l'échec</th>
+        </tr>
+"""
+
+        for idx, app in enumerate(failed_list, 1):
+            reason = app.get('reason', 'Erreur inconnue')
+            html_content += f"""        <tr>
+            <td>{idx}</td>
+            <td><span class="failed-icon">✗</span> {app.get('name', 'N/A')}</td>
+            <td>{app.get('category', 'N/A')}</td>
+            <td><span class="reason">{reason}</span></td>
+        </tr>
+"""
+
+        html_content += """    </table>
+
+    <footer>
+        <p>NiTriTe V5.0 - Installateur Automatique de Programmes</p>
+        <p>Rapport généré automatiquement</p>
+    </footer>
+</body>
+</html>
+"""
+
+        # Écrire le fichier
+        try:
+            with open(report_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+
+            self.logger.info(f"Rapport généré: {report_file}")
+
+            # Ouvrir le rapport dans le navigateur
+            webbrowser.open(str(report_file))
+
+            return report_file
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la génération du rapport: {e}")
+            return None
+
     def on_installation_finished(self, success):
         """Appelé quand l'installation est terminée"""
         self.is_installing = False
         self.installation_start_time = None  # Réinitialiser le temps de démarrage
         self.install_button.config(state='normal', text="🚀 INSTALLER")
 
-        if success:
-            messagebox.showinfo(
-                "Installation terminée",
-                "✅ L'installation de tous les programmes sélectionnés est terminée !\n\n"
-                "Vérifiez vos applications installées."
+        # Générer le rapport détaillé si des installations ont été effectuées
+        report_file = None
+        if self.successful_installs or self.failed_installs:
+            report_file = self.generate_installation_report(
+                self.successful_installs,
+                self.failed_installs
             )
+
+        if success:
+            # Message personnalisé avec statistiques
+            if report_file:
+                messagebox.showinfo(
+                    "Installation terminée",
+                    f"✅ Installation terminée !\n\n"
+                    f"Réussies: {len(self.successful_installs)}\n"
+                    f"Échouées: {len(self.failed_installs)}\n\n"
+                    f"📄 Rapport détaillé ouvert dans votre navigateur.\n"
+                    f"Fichier: {report_file.name}"
+                )
+            else:
+                messagebox.showinfo(
+                    "Installation terminée",
+                    "✅ L'installation de tous les programmes sélectionnés est terminée !\n\n"
+                    "Vérifiez vos applications installées."
+                )
             # Créer le dossier "Outils de nettoyage" si nécessaire
             self.create_cleanup_folder()
             # Désélectionner tous les programmes
             self.deselect_all_programs()
         else:
-            messagebox.showwarning(
-                "Installation interrompue",
-                "⚠️ L'installation a été interrompue.\n\n"
-                "Certains programmes peuvent avoir été installés."
-            )
-        
+            if report_file:
+                messagebox.showwarning(
+                    "Installation interrompue",
+                    f"⚠️ L'installation a été interrompue.\n\n"
+                    f"Réussies: {len(self.successful_installs)}\n"
+                    f"Échouées: {len(self.failed_installs)}\n\n"
+                    f"📄 Rapport détaillé disponible: {report_file.name}"
+                )
+            else:
+                messagebox.showwarning(
+                    "Installation interrompue",
+                    "⚠️ L'installation a été interrompue.\n\n"
+                    "Certains programmes peuvent avoir été installés."
+                )
+
+        # Réinitialiser les listes pour la prochaine installation
+        self.successful_installs = []
+        self.failed_installs = []
+
         self.update_progress(0, "")
         self.update_selection_count()
     
@@ -1023,20 +1246,74 @@ class NiTriteGUIComplet:
         screen_width = self.root.winfo_screenwidth()
         return 8 if screen_width > 1500 else 6
 
-    def create_section(self, title, icon, buttons_data, is_web=False):
+    def create_section(self, title, icon, buttons_data, is_web=False, allow_reorder=True):
         """
-        Fonction helper pour créer une section avec des boutons
+        Fonction helper pour créer une section avec des boutons et options de réorganisation
 
         Args:
             title: Titre de la section
             icon: Emoji/icône de la section
             buttons_data: Liste de tuples (label, url_ou_commande)
             is_web: Si True, tous les boutons ouvrent des URLs web
+            allow_reorder: Si True, ajoute les boutons UP/DOWN et drag & drop
         """
-        # Frame de section
-        section_frame = ttk.LabelFrame(
-            self.sections_container,
+        # Frame principale de section
+        section_main_frame = tk.Frame(self.sections_container, bg=self.DARK_BG2)
+        section_main_frame.pack(fill="x", pady=(10, 0))
+
+        # Frame titre avec boutons de contrôle
+        title_frame = tk.Frame(section_main_frame, bg=self.DARK_BG2)
+        title_frame.pack(fill="x", padx=5, pady=2)
+
+        # Titre de la section
+        title_label = tk.Label(
+            title_frame,
             text=f"{icon} {title}",
+            font=("Segoe UI", 11, "bold"),
+            bg=self.DARK_BG2,
+            fg=self.ACCENT_ORANGE
+        )
+        title_label.pack(side="left", padx=10)
+
+        # Ajouter les boutons de réorganisation si demandé
+        if allow_reorder:
+            # Bouton UP
+            btn_up = tk.Button(
+                title_frame,
+                text="▲",
+                command=lambda: self.move_section_up(title),
+                bg=self.DARK_BG3,
+                fg=self.DARK_FG,
+                width=2,
+                relief="flat",
+                font=("Segoe UI", 8)
+            )
+            btn_up.pack(side="right", padx=2)
+
+            # Bouton DOWN
+            btn_down = tk.Button(
+                title_frame,
+                text="▼",
+                command=lambda: self.move_section_down(title),
+                bg=self.DARK_BG3,
+                fg=self.DARK_FG,
+                width=2,
+                relief="flat",
+                font=("Segoe UI", 8)
+            )
+            btn_down.pack(side="right", padx=2)
+
+            # Ajouter menu contextuel
+            self.add_category_context_menu(title_frame, title)
+
+        # Stocker les informations de la section
+        self.section_titles.append(title_frame)
+        self.section_frames[title] = section_main_frame
+
+        # Frame de section (pour les boutons)
+        section_frame = ttk.LabelFrame(
+            section_main_frame,
+            text="",
             padding=5
         )
         section_frame.pack(fill="x", padx=2, pady=3)
@@ -1067,13 +1344,17 @@ class NiTriteGUIComplet:
             else:
                 command = lambda c=cmd_or_url: self.execute_quick_command(c, True)
 
-            ttk.Button(
+            btn = ttk.Button(
                 buttons_frame,
                 text=label,
                 command=command
-            ).grid(row=row, column=col, pady=1, padx=1, sticky="ew")
+            )
+            btn.grid(row=row, column=col, pady=1, padx=1, sticky="ew")
 
-        return section_frame
+            # Ajouter à la liste des boutons pour le drag & drop
+            self.all_buttons.append(btn)
+
+        return section_main_frame
 
     def create_all_tools_sections(self):
         """Crée toutes les sections d'outils avec BEAUCOUP plus de boutons"""
@@ -1097,7 +1378,237 @@ class NiTriteGUIComplet:
         self.create_depannage_section()
         self.create_drivers_section()
         self.create_documentation_section()
-    
+
+        # Activer le drag & drop pour les catégories et boutons
+        self.enable_category_drag_drop()
+        self.enable_buttons_drag_drop()
+
+        # Charger l'ordre des sections si disponible
+        self.load_sections_order()
+
+    def enable_category_drag_drop(self):
+        """Active le drag & drop pour réorganiser les catégories"""
+        for section_title in self.section_titles:
+            section_title.bind("<Button-1>", self.start_category_drag)
+            section_title.bind("<B1-Motion>", self.do_category_drag)
+            section_title.bind("<ButtonRelease-1>", self.end_category_drag)
+            section_title.config(cursor="hand2")
+
+    def start_category_drag(self, event):
+        """Début du drag d'une catégorie"""
+        self.dragging_category = event.widget
+        self.drag_start_y = event.y_root
+
+    def do_category_drag(self, event):
+        """Pendant le drag"""
+        if self.dragging_category:
+            self.dragging_category.config(bg=self.ACCENT_ORANGE)
+
+    def end_category_drag(self, event):
+        """Fin du drag - réorganiser"""
+        if self.dragging_category:
+            delta_y = event.y_root - self.drag_start_y
+            self.reorder_sections_by_drag(self.dragging_category, delta_y)
+            self.dragging_category.config(bg=self.DARK_BG2)
+            self.dragging_category = None
+
+    def reorder_sections_by_drag(self, moved_title_frame, delta):
+        """Réorganise les sections après drag"""
+        # Trouver le titre dans la liste
+        if moved_title_frame not in self.section_titles:
+            return
+
+        # Si déplacement significatif
+        if abs(delta) > 30:
+            current_index = self.section_titles.index(moved_title_frame)
+            new_index = current_index
+
+            if delta < 0 and current_index > 0:
+                new_index = current_index - 1
+            elif delta > 0 and current_index < len(self.section_titles) - 1:
+                new_index = current_index + 1
+
+            if new_index != current_index:
+                # Réorganiser la liste
+                self.section_titles.insert(new_index, self.section_titles.pop(current_index))
+                # Réorganiser visuellement
+                self.refresh_sections_order()
+                self.save_sections_order()
+
+    def move_section_up(self, section_title):
+        """Déplace une section vers le haut"""
+        if section_title not in self.section_frames:
+            return
+
+        # Trouver l'index dans la liste des sections
+        section_frame = self.section_frames[section_title]
+        all_sections = list(self.section_frames.values())
+        current_index = all_sections.index(section_frame)
+
+        if current_index > 0:
+            # Échanger avec la section précédente
+            sections_list = list(self.section_frames.items())
+            sections_list[current_index], sections_list[current_index - 1] = \
+                sections_list[current_index - 1], sections_list[current_index]
+
+            # Reconstruire le dictionnaire
+            self.section_frames = dict(sections_list)
+            self.refresh_sections_order()
+            self.save_sections_order()
+
+    def move_section_down(self, section_title):
+        """Déplace une section vers le bas"""
+        if section_title not in self.section_frames:
+            return
+
+        # Trouver l'index dans la liste des sections
+        section_frame = self.section_frames[section_title]
+        all_sections = list(self.section_frames.values())
+        current_index = all_sections.index(section_frame)
+
+        if current_index < len(all_sections) - 1:
+            # Échanger avec la section suivante
+            sections_list = list(self.section_frames.items())
+            sections_list[current_index], sections_list[current_index + 1] = \
+                sections_list[current_index + 1], sections_list[current_index]
+
+            # Reconstruire le dictionnaire
+            self.section_frames = dict(sections_list)
+            self.refresh_sections_order()
+            self.save_sections_order()
+
+    def refresh_sections_order(self):
+        """Rafraîchit l'ordre visuel des sections"""
+        for section_frame in self.section_frames.values():
+            section_frame.pack_forget()
+
+        for section_frame in self.section_frames.values():
+            section_frame.pack(fill="x", pady=(10, 0))
+
+        # Mettre à jour la région scrollable
+        if hasattr(self, 'sections_container'):
+            self.sections_container.update_idletasks()
+            self.tools_canvas.configure(scrollregion=self.tools_canvas.bbox("all"))
+
+    def add_category_context_menu(self, title_frame, section_title):
+        """Ajoute menu clic droit sur les titres"""
+        menu = tk.Menu(title_frame, tearoff=0, bg=self.DARK_BG2, fg=self.DARK_FG)
+        menu.add_command(label="▲ Monter", command=lambda: self.move_section_up(section_title))
+        menu.add_command(label="▼ Descendre", command=lambda: self.move_section_down(section_title))
+        menu.add_separator()
+        menu.add_command(label="🔄 Réinitialiser l'ordre", command=self.reset_sections_order)
+
+        title_frame.bind("<Button-3>", lambda e: menu.post(e.x_root, e.y_root))
+
+    def save_sections_order(self):
+        """Sauvegarde l'ordre des sections dans un fichier JSON"""
+        try:
+            config_dir = Path.home() / ".nitrite"
+            config_dir.mkdir(exist_ok=True)
+            config_file = config_dir / "sections_order.json"
+
+            sections_order = list(self.section_frames.keys())
+
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(sections_order, f, indent=2)
+
+            self.logger.info(f"Ordre des sections sauvegardé: {config_file}")
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la sauvegarde de l'ordre des sections: {e}")
+
+    def load_sections_order(self):
+        """Charge l'ordre des sections depuis le fichier JSON"""
+        try:
+            config_file = Path.home() / ".nitrite" / "sections_order.json"
+
+            if not config_file.exists():
+                return
+
+            with open(config_file, 'r', encoding='utf-8') as f:
+                sections_order = json.load(f)
+
+            # Réorganiser selon l'ordre chargé
+            new_dict = {}
+            for section_name in sections_order:
+                if section_name in self.section_frames:
+                    new_dict[section_name] = self.section_frames[section_name]
+
+            # Ajouter les sections manquantes
+            for section_name, section_frame in self.section_frames.items():
+                if section_name not in new_dict:
+                    new_dict[section_name] = section_frame
+
+            self.section_frames = new_dict
+            self.refresh_sections_order()
+
+            self.logger.info("Ordre des sections chargé depuis le fichier")
+        except Exception as e:
+            self.logger.error(f"Erreur lors du chargement de l'ordre des sections: {e}")
+
+    def reset_sections_order(self):
+        """Réinitialise l'ordre des sections"""
+        try:
+            config_file = Path.home() / ".nitrite" / "sections_order.json"
+            if config_file.exists():
+                config_file.unlink()
+
+            messagebox.showinfo(
+                "Ordre réinitialisé",
+                "L'ordre des sections a été réinitialisé.\n"
+                "Redémarrez l'application pour voir les changements."
+            )
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la réinitialisation: {e}")
+            messagebox.showerror("Erreur", f"Impossible de réinitialiser l'ordre: {e}")
+
+    def enable_buttons_drag_drop(self):
+        """Active le drag & drop pour les boutons"""
+        for button in self.all_buttons:
+            button.bind("<Button-1>", self.start_button_drag, add="+")
+            button.bind("<B1-Motion>", self.do_button_drag, add="+")
+            button.bind("<ButtonRelease-1>", self.end_button_drag, add="+")
+
+    def start_button_drag(self, event):
+        """Début du drag d'un bouton"""
+        self.dragging_button = event.widget
+        self.drag_button_section = self.find_button_section(event.widget)
+
+    def do_button_drag(self, event):
+        """Pendant le drag du bouton"""
+        if self.dragging_button:
+            # Indication visuelle (optionnel)
+            pass
+
+    def end_button_drag(self, event):
+        """Fin du drag - réorganiser le bouton"""
+        if self.dragging_button:
+            closest_button = self.find_closest_button(event)
+            if closest_button and closest_button != self.dragging_button:
+                self.swap_buttons(self.dragging_button, closest_button)
+            self.dragging_button = None
+
+    def find_button_section(self, button):
+        """Trouve la section d'un bouton"""
+        parent = button.master
+        while parent and not isinstance(parent, ttk.LabelFrame):
+            parent = parent.master
+        return parent
+
+    def find_closest_button(self, event):
+        """Trouve le bouton le plus proche de la position de la souris"""
+        # Implémentation basique - peut être améliorée
+        return None
+
+    def swap_buttons(self, button1, button2):
+        """Échange deux boutons de position"""
+        # Récupérer les infos de grille
+        info1 = button1.grid_info()
+        info2 = button2.grid_info()
+
+        # Échanger les positions
+        button1.grid(row=info2['row'], column=info2['column'])
+        button2.grid(row=info1['row'], column=info1['column'])
+
     def create_reparation_section(self):
         """Section Réparation Système avec 30+ commandes Windows"""
         buttons_data = [
@@ -2382,71 +2893,101 @@ class NiTriteGUIComplet:
             if self.is_installing:
                 if not messagebox.askyesno(
                     "Installation en cours",
-                    "Une installation est en cours. Voulez-vous vraiment quitter ?"
+                    "Une installation est en cours. Voulez-vous vraiment quitter?\n"
+                    "Cela arrêtera tous les téléchargements et installations."
                 ):
                     return
+
+            # Afficher message d'arrêt des processus
+            if hasattr(self, 'selection_label'):
+                self.selection_label.config(text="⏹️ Arrêt des processus en cours...")
+                self.root.update_idletasks()
 
             # Arrêter proprement tous les processus enfants avec psutil
             try:
                 import psutil
                 import os
 
-                # Afficher message d'arrêt des processus
-                if hasattr(self, 'selection_label'):
-                    self.selection_label.config(text="Arrêt des processus en cours...")
-                    self.root.update_idletasks()
+                self.logger.info("🔴 Arrêt de tous les processus enfants...")
 
+                # Obtenir le processus courant
                 current_process = psutil.Process(os.getpid())
+
+                # Obtenir tous les enfants (récursif)
                 children = current_process.children(recursive=True)
 
                 if children:
-                    self.logger.info(f"Arrêt de {len(children)} processus enfant(s)...")
+                    self.logger.info(f"📊 Trouvé {len(children)} processus enfant(s) à arrêter")
 
-                    # Terminer proprement chaque processus enfant
+                    # Terminer poliment d'abord
                     for child in children:
                         try:
+                            self.logger.info(f"⏹️ Arrêt du processus {child.pid} ({child.name()})")
                             child.terminate()
-                        except (psutil.NoSuchProcess, psutil.AccessDenied):
-                            pass
+                        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                            self.logger.warning(f"⚠️ Impossible d'arrêter {child.pid}: {e}")
 
-                    # Attendre que les processus se terminent (max 3 secondes)
+                    # Attendre un peu (max 3 secondes)
                     gone, alive = psutil.wait_procs(children, timeout=3)
 
-                    # Forcer l'arrêt des processus qui ne se sont pas terminés
-                    for p in alive:
-                        try:
-                            p.kill()
-                        except (psutil.NoSuchProcess, psutil.AccessDenied):
-                            pass
+                    # Log des processus terminés
+                    if gone:
+                        self.logger.info(f"✅ {len(gone)} processus terminés proprement")
 
-                    self.logger.info(f"✅ Processus enfants arrêtés proprement")
+                    # Forcer les survivants
+                    if alive:
+                        self.logger.warning(f"⚠️ {len(alive)} processus nécessitent un arrêt forcé")
+                        for child in alive:
+                            try:
+                                self.logger.warning(f"💥 Force kill du processus {child.pid}")
+                                child.kill()
+                            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                                self.logger.error(f"❌ Impossible de tuer {child.pid}: {e}")
+
+                    self.logger.info("✅ Tous les processus enfants arrêtés")
+                else:
+                    self.logger.info("ℹ️ Aucun processus enfant à arrêter")
 
             except ImportError:
-                self.logger.warning("psutil non disponible - arrêt basique")
+                self.logger.warning("⚠️ psutil non disponible - arrêt simple")
             except Exception as e:
-                self.logger.error(f"Erreur lors de l'arrêt des processus: {e}")
+                self.logger.error(f"❌ Erreur lors de l'arrêt des processus: {e}")
 
             # Fermer tous les logs
             logging.shutdown()
-            
+
             # Nettoyer les références
-            self.program_vars.clear()
-            self.programs.clear()
-            self.category_frames.clear()
-            self.category_widgets.clear()
-            
+            self.logger.info("🧹 Nettoyage des références...")
+            if hasattr(self, 'program_vars'):
+                self.program_vars.clear()
+            if hasattr(self, 'programs'):
+                self.programs.clear()
+            if hasattr(self, 'category_frames'):
+                self.category_frames.clear()
+            if hasattr(self, 'category_widgets'):
+                self.category_widgets.clear()
+            if hasattr(self, 'section_frames'):
+                self.section_frames.clear()
+            if hasattr(self, 'section_titles'):
+                self.section_titles.clear()
+            if hasattr(self, 'all_buttons'):
+                self.all_buttons.clear()
+
             # Forcer le garbage collector
             gc.collect()
-            
+
             # Détruire la fenêtre
+            self.logger.info("🚪 Fermeture de NiTriTe V5.0")
             self.root.quit()
             self.root.destroy()
-            
+
             # Forcer la sortie
             sys.exit(0)
-            
+
         except Exception as e:
-            print(f"Erreur lors de la fermeture: {e}")
+            print(f"❌ Erreur lors de la fermeture: {e}")
+            import traceback
+            traceback.print_exc()
             sys.exit(0)
 
     # ===============================================
