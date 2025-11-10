@@ -233,7 +233,7 @@ class InstallerManager:
         
         program_info = self.programs_db[program_name]
         self.log_callback(f"Début de l'installation de {program_name}", "info")
-        self.log_callback(f"📋 Config: portable={program_info.get('portable', False')}, install_args='{program_info.get('install_args', '')}', winget_id={program_info.get('winget_id', 'None')}, download_url={program_info.get('download_url', 'None')}", "info")
+        self.log_callback(f"📋 Config: portable={program_info.get('portable', False)}, install_args={program_info.get('install_args', '')}, winget_id={program_info.get('winget_id', 'None')}, download_url={program_info.get('download_url', 'None')}", "info")
 
         # LOGIQUE CORRIGÉE POUR LES PORTABLES
         is_portable = program_info.get('portable', False)
