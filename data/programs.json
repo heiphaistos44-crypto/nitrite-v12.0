@@ -878,15 +878,6 @@
             "category": "Sécurité",
             "admin_required": true
         },
-        "Spybot Anti-Beacon": {
-            "description": "Bloquer les télémétries Windows",
-            "download_url": "https://sourceforge.net/projects/spybot/files/latest/download",
-            "install_args": "/S",
-            "category": "Sécurité",
-            "admin_required": true,
-            "winget_id": "SaferNetworking.SpybotSearchAndDestroy",
-            "note": "Installation via SourceForge - Dernière version stable"
-        },
         "O&O ShutUp10++": {
             "description": "Désactiver la collecte de données Windows",
             "download_url": "https://dl5.oo-software.com/files/ooshutup10/OOSU10.exe",
